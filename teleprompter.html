@@ -1,0 +1,83 @@
+<!doctype html>
+<!-- Copyright 2026 GTK Cyber. Licensed under the Apache License, Version 2.0. See LICENSE. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>GTK Cyber Teleprompter</title>
+<link rel="icon" href="logo.svg">
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<style>
+  body { margin: 0; background: #000; color: #fff; font-family: sans-serif; }
+  #bar { position: fixed; top: 0; left: 0; right: 0; padding: 8px; background: #0c3d54; font-size: 14px; z-index: 1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #bar img { height: 24px; }
+  #bar b { color: #eba900; }
+  #bar.hidden { display: none; }
+  #script { max-width: 900px; margin: 0 auto; padding: 50vh 40px; font-size: 56px; line-height: 1.4; }
+  #script.mirror { transform: scaleX(-1); }
+  #marker { position: fixed; top: 40vh; left: 0; right: 0; border-top: 2px solid #eba900; opacity: .5; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <img src="logo.svg" alt=""><b>GTK Cyber</b>
+  <input type="file" id="file" accept=".md,.markdown,.txt">
+  (or drop a file) &nbsp; Space/PgDn: play/pause &nbsp; PgUp: back up &nbsp; ↑/↓: speed &nbsp; +/-: text size &nbsp; M: mirror &nbsp; H: hide bar &nbsp; Home: restart
+  &nbsp; | Speed: <span id="speed"></span>
+</div>
+<div id="marker"></div>
+<div id="script">Open a markdown file to begin.</div>
+<script>
+  const script = document.getElementById('script');
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('prompter')) || {}; } catch {}
+  let speed = saved.speed ?? 60, size = saved.size ?? 56, playing = false, pos = 0, last = 0;  // speed in px/sec
+  script.style.fontSize = size + 'px';
+  script.classList.toggle('mirror', !!saved.mirror);
+
+  function show() {
+    document.getElementById('speed').textContent = speed;
+    try { localStorage.setItem('prompter', JSON.stringify({ speed, size, mirror: script.classList.contains('mirror') })); } catch {}
+  }
+  show();
+
+  async function load(file) {
+    if (!file) return;
+    script.innerHTML = marked.parse(await file.text());
+    pos = 0; scrollTo(0, 0);
+  }
+  document.getElementById('file').onchange = e => { load(e.target.files[0]); e.target.blur(); };  // blur so Space doesn't reopen the picker
+  addEventListener('dragover', e => e.preventDefault());
+  addEventListener('drop', e => { e.preventDefault(); load(e.dataTransfer.files[0]); });
+
+  function toggle() {
+    playing = !playing;
+    if (playing) { pos = scrollY; last = performance.now(); requestAnimationFrame(tick); }
+  }
+
+  function tick(t) {
+    if (!playing) return;
+    pos += speed * (t - last) / 1000;  // track fractional position; scrollY rounds
+    last = t;
+    scrollTo(0, pos);
+    requestAnimationFrame(tick);
+  }
+
+  addEventListener('keydown', e => {
+    const k = e.key;
+    // ponytail: remote = presentation clicker (sends PageDown/PageUp or arrows); phone remote would need a server
+    if (k === ' ' || k === 'PageDown' || k === 'ArrowRight') toggle();
+    else if (k === 'PageUp' || k === 'ArrowLeft') { pos = Math.max(0, scrollY - 200); scrollTo(0, pos); }
+    else if (k === 'ArrowUp') speed += 10;
+    else if (k === 'ArrowDown') speed = Math.max(0, speed - 10);
+    else if (k === '+' || k === '=') script.style.fontSize = (size += 4) + 'px';
+    else if (k === '-') script.style.fontSize = (size = Math.max(16, size - 4)) + 'px';
+    else if (k === 'm' || k === 'M') script.classList.toggle('mirror');
+    else if (k === 'h' || k === 'H') document.getElementById('bar').classList.toggle('hidden');
+    else if (k === 'Home') { pos = 0; scrollTo(0, 0); }
+    else return;
+    e.preventDefault();
+    show();
+  });
+</script>
+</body>
+</html>
