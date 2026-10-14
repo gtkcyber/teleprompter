@@ -4,7 +4,7 @@ A single-file browser teleprompter for recording videos. It loads a Markdown scr
 
 ## Usage
 
-1. Open `teleprompter.html` in a browser. No server or install is needed.
+1. Open `index.html` in a browser. No server or install is needed.
 2. Click the file picker or drag a `.md` / `.txt` file onto the page.
 3. Press Space to start scrolling.
 
